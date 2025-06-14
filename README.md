@@ -1,6 +1,6 @@
 # ARIMA-GARCH Volatility Forecasting Dashboard
 
-This interactive web application, built with Plotly Dash, provides a comprehensive toolkit for time series analysis and volatility forecasting of major tech stocks. Users can specify a custom ARIMA-GARCH model and evaluate its in-sample forecast performance.
+This interactive web application, built with Plotly Dash, provides a comprehensive toolkit for time series analysis and volatility forecasting of major tech stocks. Users can specify a custom ARIMA-GARCH model and evaluate its in-sample forecast performance. Dataset was retrieved using Polygon API and saved into a .pkl file.
 
 ## Methodology Overview
 
@@ -36,7 +36,7 @@ The dashboard guides the user through the standard workflow for building a volat
 
 ## Technical Stack
 
-* **Backend & Web Framework:** Dash, Flask
+* **Backend & Web Framework:** Dash, Flask, Polygon API
 * **Data Manipulation:** Pandas, NumPy
 * **Statistical Modeling:**
     * `statsmodels` for ARIMA, ADF test, and diagnostic tests.
