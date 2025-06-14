@@ -1,0 +1,15 @@
+# Byte-code
+__pycache__/
+
+# Virtual Environment
+.venv/
+venv/
+
+# IDE specific files
+.vscode/
+
+# Environment variables
+.env
+
+# Data loader
+TickerData.py
