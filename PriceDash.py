@@ -35,7 +35,7 @@ colors = {
 app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
     # Ticker Input
     html.H3("Type ticker (AMZN, AAPL, GOOG, META, MSFT) and press Enter:",
-        style={'textAlign': 'center', 'paddingBottom': '20px'}),
+        style={'textAlign': 'center'}),
     html.Div(style={'textAlign': 'center'}, children=[
         dcc.Input(id='ticker-input', debounce=True, value=initial_ticker, type='text',
             style={'textAlign': 'center'})
@@ -52,7 +52,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                 initial_visible_month=df.index.min().date(),
                 date=df.index.min().date()
             ),
-        ], style={'display': 'inline-block', 'paddingRight': '20px'}),
+        ], style={'display': 'inline-block'}),
         
         html.Div([
             html.H6("End Date:"),
@@ -68,12 +68,12 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 
     html.H1(
         id='dash-title',
-        style={'textAlign': 'center', 'paddingTop': '20px'}
+        style={'textAlign': 'center'}
     ),
 
     html.Div(
         id='description-text',
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}
+        style={'textAlign': 'center'}
     ),
 
     dcc.Graph(id='price-chart'),
@@ -84,12 +84,14 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         style={'textAlign': 'center'}),
     html.Div(
         id='ADF_results',
-        style={'textAlign': 'center', 'whiteSpace': 'pre-wrap'}
+        style={'textAlign': 'center'}
     ),
 
     html.Div([
-        dcc.Graph(id='PACF', style={'display': 'inline-block', 'paddingBottom': '20px', 'width':'49%'}),
-        dcc.Graph(id='ACF', style={'display': 'inline-block', 'paddingBottom': '20px', 'width':'49%'})
+        dcc.Graph(id='PACF',
+                  style={'display': 'inline-block', 'width':'49%'}),
+        dcc.Graph(id='ACF',
+                  style={'display': 'inline-block', 'width':'49%'})
     ], style={'textAlign': 'center'}),
 
     # ARIMA Specification Inputs
@@ -102,25 +104,27 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
             dcc.Input(
                 id='p_arima', debounce=True, value=0, type='number'
             ),
-        ], style={'display': 'inline-block', 'paddingBottom': '20px', 'paddingRight': '10px'}),
+        ], style={'display': 'inline-block'}),
         
         html.Div([
             html.H6("q (MA component):"),
             dcc.Input(
                 id='q_arima', debounce=True, value=0, type='number'
             ),
-        ], style={'display': 'inline-block', 'paddingBottom': '20px'}),
+        ], style={'display': 'inline-block'}),
         
         html.Div(
         id='arima_text',
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}
-    )
+        style={'textAlign': 'center', 'padding-top': '10px'}
+        )
     ], style={'textAlign': 'center'}),
 
     #. Residual plots
     html.Div([
-        dcc.Graph(id='residual_plot', style={'display': 'inline-block', 'paddingBottom': '20px', 'width':'49%'}),
-        dcc.Graph(id='residual_sq_plot', style={'display': 'inline-block', 'paddingBottom': '20px', 'width':'49%'})
+        dcc.Graph(id='residual_plot',
+                  style={'display': 'inline-block', 'width':'49%'}),
+        dcc.Graph(id='residual_sq_plot',
+                  style={'display': 'inline-block','width':'49%'})
     ], style={'textAlign': 'center'}),
 
     # Ljung-Box + Breusch-Pagan tests
@@ -128,12 +132,12 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         style={'textAlign': 'center'}),
     html.Div(
         id='lb_result',
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}),
+        style={'textAlign': 'center'}),
     html.H3("Breusch-Pagan Test For Heteroskedasticity of Residuals",
         style={'textAlign': 'center'}),
     html.Div(
         id='bp_result',
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}),
+        style={'textAlign': 'center'}),
 
     # ARCH model
     html.H3("ARCH(1) model",
@@ -141,7 +145,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     html.Div(children=[
         html.Pre(id='ARCH_result')
         ],
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}),
+        style={'textAlign': 'center'}),
 
     # GARCH model
     html.H3("GARCH(1,1) model",
@@ -149,12 +153,14 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     html.Div(children=[
         html.Pre(id='GARCH_result')
         ],
-        style={'textAlign': 'center', 'paddingBottom': '20px', 'whiteSpace': 'pre-wrap'}),
+        style={'textAlign': 'center'}),
     
     # Forecast Date Picker and Metrics
     html.Div([
-        html.H3("GARCH Forecast Performance", style={'textAlign': 'center'}),
-        html.H6("Select a date range for the in-sample forecast:", style={'textAlign': 'center'}),
+        html.H2("GARCH Forecast Performance",
+                style={'textAlign': 'center'}),
+        html.H4("Select a date range for the in-sample forecast:", 
+                style={'textAlign': 'center'}),
         html.Div([
             dcc.DatePickerSingle(
                 id='forecast-start-date-picker',
@@ -170,15 +176,15 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                 date=df.index.max().date(), # Default end
             ),
         ], style={'display': 'inline-block'}),
-        
-        html.Div(
+
+    ], style={'textAlign': 'center'}),
+
+    dcc.Graph(id='vol_forecast_plot'),
+
+    html.Div(
             id='forecast-metrics',
-            style={'textAlign': 'center', 'paddingTop': '10px', 'fontWeight': 'bold'}
+            style={'textAlign': 'center', 'fontWeight': 'bold', 'padding-bottom': '20px'}
         ),
-
-    ], style={'textAlign': 'center', 'paddingBottom': '20px'}),
-
-    dcc.Graph(id='vol_forecast_plot')
 ])
 
 # --- Callback to Update the Graphs and Text ---
@@ -459,9 +465,7 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
         },
         xaxis_title='Date',
         yaxis_title='Conditional Volatility (%)',
-        legend_title='Volatility Type',
-        template='plotly_white',
-        font=dict(family="Arial, sans-serif", size=12, color="black")
+        legend_title='Volatility Type'
     )
     vol_forecast_plot.update_xaxes(rangeslider_visible=True)
 
@@ -479,6 +483,11 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
         "The order of differencing to make the price time series stationary is determined using Augmented Dickey-Fuller test, "
         "then ACF and PACF plots are shown to determine specification of ARIMA model.\n"
         "Residual plots are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed."
+        "ARCH effects are tested for, then a GARCH model is fitting for volatility forecasting."
+        "GARCH forecasts of conditional volatility are shown, then MSE and MAPE are displayed for the specified forecasts."
     )
     
     return price_chart, return_chart, dash_title, description_text, ADF_results, pacf_plot, acf_plot, arima_text, residuals_plot, residuals_sq_plot, lb_result, bp_result, ARCH_result, GARCH_result, metrics_text, vol_forecast_plot
+
+if __name__ == '__main__':
+    app.run(debug=True)
