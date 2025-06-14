@@ -482,12 +482,12 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     dash_title = (f"Analysis for: {ticker}")
     description_text = (
         f"This dashboard shows the daily price and returns for {ticker} from {start_date_str} to {end_date_str}, "
-        "then conducts a forecast of volatility.\n"
+        "then conducts a forecast of volatility. "
         "The order of differencing to make the price time series stationary is determined using Augmented Dickey-Fuller test, "
-        "then ACF and PACF plots are shown to determine specification of an ARIMA-GARCH model.\n"
-        "Residual plots for the ARIMA mean model are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed to check for serial correlation and ARCH effects."
-        "An ARCH and GARCH model is then fit to the ARIMA residuals for volatility forecasting."
-        "GARCH forecasts of conditional volatility are shown, then MSE and MAPE are displayed for the specified forecasts."
+        "then ACF and PACF plots are shown to determine specification of an ARIMA-GARCH model. "
+        "Residual plots for the ARIMA mean model are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed to check for serial correlation and ARCH effects. "
+        "An ARCH and GARCH model is then fit to the ARIMA residuals for volatility forecasting. "
+        "GARCH forecasts of conditional volatility are shown, then MSE and MAPE are displayed for the specified forecasts. "
     )
     
     return price_chart, return_chart, dash_title, description_text, ADF_results, pacf_plot, acf_plot, arima_text, residuals_plot, residuals_sq_plot, lb_result, bp_result, ARCH_result, GARCH_result, metrics_text, vol_forecast_plot
