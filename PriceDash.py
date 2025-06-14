@@ -80,7 +80,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     dcc.Graph(id='return-chart'),
 
     #ADF test
-    html.H3("Augmented Dickey-Fuller Test for Stationarity",
+    html.H3("Augmented Dickey-Fuller Test for Stationarity of Log Returns",
         style={'textAlign': 'center'}),
     html.Div(
         id='ADF_results',
@@ -128,19 +128,19 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     ], style={'textAlign': 'center'}),
 
     # Ljung-Box + Breusch-Pagan tests
-    html.H3("Ljung-Box Test for Serial Correlation of Residuals",
+    html.H3("Ljung-Box Test for Serial Correlation of ARIMA Residuals",
         style={'textAlign': 'center'}),
     html.Div(
         id='lb_result',
         style={'textAlign': 'center'}),
-    html.H3("Breusch-Pagan Test For Heteroskedasticity of Residuals",
+    html.H3("Breusch-Pagan Test For Heteroskedasticity of ARIMA Residuals",
         style={'textAlign': 'center'}),
     html.Div(
         id='bp_result',
         style={'textAlign': 'center'}),
 
     # ARCH model
-    html.H3("ARCH(1) model",
+    html.H3("ARCH(1) model on ARIMA Residuals",
         style={'textAlign': 'center'}),
     html.Div(children=[
         html.Pre(id='ARCH_result')
@@ -148,7 +148,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         style={'textAlign': 'center'}),
 
     # GARCH model
-    html.H3("GARCH(1,1) model",
+    html.H3("GARCH(1,1) model on ARIMA Residuals",
         style={'textAlign': 'center'}),
     html.Div(children=[
         html.Pre(id='GARCH_result')
@@ -341,14 +341,14 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     model = ARIMA(log_returns, order=(p, d, q))
     model_fit = model.fit()
     arima_text = (
-        f'The ARIMA model specified is ARIMA({p}, {d}, {q}).'
+        f'The mean model specified for log returns is ARIMA({p}, {d}, {q}).'
     )
 
     # Residual plots. First d residuals are dropped due to lack of data if series is integrated
-    residuals = model_fit.resid[d:]
+    arima_residuals = model_fit.resid[d:]
     residuals_plot = px.scatter(
-        x=residuals.index,
-        y=residuals,
+        x=arima_residuals.index,
+        y=arima_residuals,
         title=f"ARIMA Model Residuals"
     )
     residuals_plot.update_xaxes(rangeslider_visible=True)
@@ -357,8 +357,8 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
         yaxis_title="Residual"
     )
     residuals_sq_plot = px.scatter(
-        x=residuals.index,
-        y=residuals ** 2,
+        x=arima_residuals.index,
+        y=arima_residuals ** 2,
         title=f"ARIMA Model Squared Residuals"
     )
     residuals_sq_plot.update_layout(
@@ -367,16 +367,16 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     )
     residuals_sq_plot.update_xaxes(rangeslider_visible=True)
 
-    # Ljung-Box test on residuals for serial correlation
-    lb_test = acorr_ljungbox(residuals, lags=[10], return_df=True) # Check up to 10 lags
+    # Ljung-Box test on ARIMA residuals for serial correlation
+    lb_test = acorr_ljungbox(arima_residuals, lags=[10], return_df=True) # Check up to 10 lags
     if lb_test['lb_pvalue'].iloc[0] > 0.05:
         lb_result = f"""Ljung-Box test statistic: {lb_test['lb_stat'].iloc[0]:.4}; p = {lb_test['lb_pvalue'].iloc[0]:.4}; residuals appear to be white noise without serial correlation."""
     else:
         lb_result = f"""Ljung-Box test statistic: {lb_test['lb_stat'].iloc[0]:.4}; p = {lb_test['lb_pvalue'].iloc[0]:.4}; residuals may not be white noise and show serial correlation."""
 
-    # Breusch-Pagan test for heteroskedasticity of residuals
-    exog_het_time = pd.DataFrame({'const': np.ones(len(residuals)), 'time_trend': np.arange(len(residuals))})
-    bp_test = het_breuschpagan(residuals, exog_het_time)
+    # Breusch-Pagan test for heteroskedasticity of ARIMA residuals
+    exog_het_time = pd.DataFrame({'const': np.ones(len(arima_residuals)), 'time_trend': np.arange(len(arima_residuals))})
+    bp_test = het_breuschpagan(arima_residuals, exog_het_time)
     if bp_test[1] > 0.05:
         bp_result = f"LM Statistic: {bp_test[0]:.4}; p = {bp_test[1]:.4}; residuals appear to be homoskedastic. GARCH volatility forecasting may not be appropriate."
     else:
@@ -385,11 +385,12 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     # --- End of ARIMA Specification and Residual Diagnostics
 #################################
     # --- ARCH Test, GARCH Fitting
-    arch_spec = arch_model(log_returns, mean='Zero', vol='ARCH', p=1)
+    # Fit models on the residuals of the ARIMA model
+    arch_spec = arch_model(arima_residuals, mean='Zero', vol='ARCH', p=1)
     arch_results = arch_spec.fit(disp='off')
     ARCH_result = arch_results.summary().as_text()
 
-    garch_spec = arch_model(log_returns, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
+    garch_spec = arch_model(arima_residuals, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
     garch_results = garch_spec.fit(disp='off')
     GARCH_result = garch_results.summary().as_text()
 
@@ -401,11 +402,13 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     observed_vol = garch_results.conditional_volatility
 
     # 2. Split data for training and testing based on the forecast dates
-    train_returns = log_returns.loc[:forecast_start_date]
+    train_log_returns = log_returns.loc[:forecast_start_date]
     test_index = log_returns.loc[forecast_start_date:forecast_end_date].index
     
-    # 3. Fit a new GARCH model on the training data only
-    garch_train_spec = arch_model(train_returns, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
+    # 3. Fit a new ARIMA-GARCH model on the training data only
+    train_arima_model = ARIMA(train_log_returns, order=(p, d, q)).fit()
+    train_arima_residuals = train_arima_model.resid[d:]
+    garch_train_spec = arch_model(train_arima_residuals, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
     garch_train_results = garch_train_spec.fit(disp='off')
     
     # 4. Forecast from the end of the training data and calculate metrics
@@ -430,8 +433,8 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
 
     # Add historical/training conditional volatility
     vol_forecast_plot.add_trace(go.Scatter(
-        x=train_returns.index,
-        y=observed_vol.loc[train_returns.index], # type: ignore
+        x=train_log_returns.index,
+        y=observed_vol.loc[train_log_returns.index], # type: ignore
         mode='lines',
         name='Historical (Training) Volatility',
         line=dict(color='royalblue', width=2)
@@ -481,9 +484,9 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
         f"This dashboard shows the daily price and returns for {ticker} from {start_date_str} to {end_date_str}, "
         "then conducts a forecast of volatility.\n"
         "The order of differencing to make the price time series stationary is determined using Augmented Dickey-Fuller test, "
-        "then ACF and PACF plots are shown to determine specification of ARIMA model.\n"
-        "Residual plots are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed."
-        "ARCH effects are tested for, then a GARCH model is fitting for volatility forecasting."
+        "then ACF and PACF plots are shown to determine specification of an ARIMA-GARCH model.\n"
+        "Residual plots for the ARIMA mean model are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed to check for serial correlation and ARCH effects."
+        "An ARCH and GARCH model is then fit to the ARIMA residuals for volatility forecasting."
         "GARCH forecasts of conditional volatility are shown, then MSE and MAPE are displayed for the specified forecasts."
     )
     
