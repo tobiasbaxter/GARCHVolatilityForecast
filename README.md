@@ -18,11 +18,11 @@ The dashboard guides the user through the standard workflow for building a volat
 
 * **Volatility Model (ARCH/GARCH):** An ARCH(1) and a GARCH(1,1) model are fitted to the residuals of the ARIMA model. This two-step approach (ARIMA -> GARCH) allows for the joint modeling of the conditional mean and conditional variance of the returns. The summary statistics for both volatility models are displayed.
 
-* **In-Sample Forecasting & Evaluation:** The dashboard allows the user to perform an in-sample forecast to evaluate the performance of the fitted GARCH(1,1) model.
-    * The user selects a forecast period within the chosen date range.
-    * The data is split into a training and testing set. A new ARIMA-GARCH model is fitted using only the training data.
-    * A forecast is generated for the test period and plotted against the observed conditional volatility.
-    * Mean Squared Error (MSE) and Mean Absolute Percentage Error (MAPE) are calculated to quantify the forecast's accuracy.
+* **Forecasting & Evaluation:** The dashboard performs a walk-forward analysis to evaluate the performance of the fitted GARCH(1,1) model.
+    * The data is split into a training set and a one step ahead forecast is made. A new ARIMA-GARCH model is fitted using only the training data.
+    * This is repeated, with the next day added into the training set and another forecast made. This is repeated until the end of the data range.
+    * The forecast is plotted against realised volatility; log returns are used as a proxy for this.
+    * Root Mean Squared Error (RMSE) and Mean Absolute Error (MAE) are calculated to quantify the forecast's accuracy.
 
 ## How to Use the App
 
@@ -32,7 +32,7 @@ The dashboard guides the user through the standard workflow for building a volat
 4.  **Analyze Stationarity:** Observe the ADF test results and the ACF/PACF plots to determine an appropriate ARIMA specification.
 5.  **Specify ARIMA Model:** Input your chosen `p` and `q` values. The dashboard will update with the model's residuals and diagnostic tests.
 6.  **Evaluate GARCH Model:** Review the ARCH and GARCH model summaries.
-7.  **Assess Forecast Performance:** Use the final set of date pickers to select an in-sample forecast period and view the forecast plot and accuracy metrics.
+7.  **Assess Forecast Performance:** View the forecast plot and accuracy metrics.
 
 ## Technical Stack
 
@@ -44,3 +44,8 @@ The dashboard guides the user through the standard workflow for building a volat
     * `scikit-learn` for forecast evaluation metrics.
 * **Plotting:** Plotly Express, Plotly Graph Objects
 * **Deployment:** Render
+
+## Limitations and Further Analyses
+* **Fixed Data Range Overall:** Further updates could pull more recent data instead of the fixed range (currently, I am limited by my API, which would fail if several requests were made in a short time period. This lead to the choice for a fixed dataset)
+* **ARIMA and GARCH Specification:** While the ability to choose parameters for ARIMA is flexible for the user, there is much scope for further analysis at this stage. Options include specifying many models and displaying metrics such as AIC and BIC, then allowing manual model selection. Alternatively, MLE could be used and one model selected for the user.
+* **Observed volatility:** Log returns is a simplistic proxy for observed volatility. Other possibilities include a rolling standard deviation.

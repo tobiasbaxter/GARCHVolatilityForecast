@@ -11,7 +11,7 @@ from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from arch import arch_model
-from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
+from sklearn.metrics import root_mean_squared_error, mean_absolute_error
 
 # Loads data
 pickle_filename = "stock_analysis_data.pkl"
@@ -155,28 +155,10 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         ],
         style={'textAlign': 'center'}),
     
-    # Forecast Date Picker and Metrics
+    # Forecast Metrics (removed date pickers)
     html.Div([
-        html.H2("GARCH Forecast Performance",
+        html.H2("GARCH Walk-Forward Volatility Forecast Performance",
                 style={'textAlign': 'center'}),
-        html.H4("Select a date range for the in-sample forecast:", 
-                style={'textAlign': 'center'}),
-        html.Div([
-            dcc.DatePickerSingle(
-                id='forecast-start-date-picker',
-                min_date_allowed=df.index.min().date(),
-                max_date_allowed=df.index.max().date(),
-                date=df.index.max().date() - pd.Timedelta(days=30), # Default start
-                style={'marginRight': '10px'}
-            ),
-            dcc.DatePickerSingle(
-                id='forecast-end-date-picker',
-                min_date_allowed=df.index.min().date(),
-                max_date_allowed=df.index.max().date(),
-                date=df.index.max().date(), # Default end
-            ),
-        ], style={'display': 'inline-block'}),
-
     ], style={'textAlign': 'center'}),
 
     dcc.Graph(id='vol_forecast_plot'),
@@ -208,13 +190,11 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     Input('ticker-input', 'value'),
     Input('start-date-picker', 'date'),
     Input('end-date-picker', 'date'),
-    Input('forecast-start-date-picker', 'date'),
-    Input('forecast-end-date-picker', 'date'),
     Input('p_arima', 'value'),
     Input('q_arima', 'value'),
 )
 
-def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forecast_end_date, p, q):
+def update_graphs(input_ticker, start_date, end_date, p, q): # Removed forecast_start_date, forecast_end_date
     """
     Updates the dashboard components based on the user's ticker input.
     """
@@ -223,7 +203,7 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     
     # Check if the requested ticker is in our data
     if ticker not in df.columns:
-        # If not, return an empty chart and an error message
+        # If not, return an empty chart and an. error message
         error_title = f"Ticker '{ticker}' not found"
         error_desc = "Please enter a valid ticker from the dataset."
         # Return empty outputs for all 16 outputs
@@ -396,74 +376,123 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
 
     # --- End of ARCH Test, GARCH Fitting
 #################################
-    # --- GARCH Volatility Forecasting ---
-    
-    # 1. Get Observed Volatility from the full model fitted on the entire selected date range
-    observed_vol = garch_results.conditional_volatility
+    # --- GARCH Walk-Forward Volatility Forecasting ---
 
-    # 2. Split data for training and testing based on the forecast dates
-    train_log_returns = log_returns.loc[:forecast_start_date]
-    test_index = log_returns.loc[forecast_start_date:forecast_end_date].index
-    
-    # 3. Fit a new ARIMA-GARCH model on the training data only
-    train_arima_model = ARIMA(train_log_returns, order=(p, d, q)).fit()
-    train_arima_residuals = train_arima_model.resid[d:]
-    garch_train_spec = arch_model(train_arima_residuals, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
-    garch_train_results = garch_train_spec.fit(disp='off')
-    
-    # 4. Forecast from the end of the training data and calculate metrics
-    horizon = len(test_index)
-    forecasted_volatility = pd.Series(dtype='float64') # Initialize empty series
-    metrics_text = "Select a forecast period to see performance metrics."
+    # Set initial training period
+    initial_train_len = 365 
 
-    if horizon > 0:
-        forecast = garch_train_results.forecast(horizon=horizon, reindex=False)
-        forecasted_volatility = np.sqrt(forecast.variance.iloc[-1])
-        forecasted_volatility.index = test_index # type: ignore
+    # Initialize lists to store walk-forward results
+    walk_forward_forecasts = []
+    walk_forward_observed_volatility = []
+    walk_forward_forecast_dates = []
+
+    # Calculate  start date for walk-forward analysis, verifies there is sufficient data
+    if len(log_returns.index) < 2:
+        metrics_text = "Not enough data for walk-forward analysis."
+        vol_forecast_plot = go.Figure()
+        vol_forecast_plot.update_layout(title="Not enough data for Walk-Forward Analysis", annotations=[dict(text="Please select a wider date range", showarrow=False)])
+
+    # Finds index of the date that is approximately 365 calendar days from the start of chosen data
+    initial_training_end_idx = 0
+    first_data_date = log_returns.index[0]
+    for i, current_date in enumerate(log_returns.index):
+        if (current_date - first_data_date).days >= initial_train_len:
+            initial_training_end_idx = i
+            break
+    
+    # If even the full selected range isn't 365 days, adjust message
+    if initial_training_end_idx == 0 and (log_returns.index[-1] - log_returns.index[0]).days < initial_train_len:
+        metrics_text = f"Selected period ({ (log_returns.index[-1] - log_returns.index[0]).days} days) is less than the required 365 days for initial training window. Please select a wider date range."
+        vol_forecast_plot = go.Figure()
+        vol_forecast_plot.update_layout(title="Not enough data for Walk-Forward Analysis", annotations=[dict(text="Please select a wider date range", showarrow=False)])
+
+    # Loop through the data to perform walk-forward forecasting
+    for i in range(initial_training_end_idx, len(log_returns.index) - 1):
+        train_end_date = log_returns.index[i]
         
-        # Calculate metrics
-        observed = observed_vol.loc[test_index] # type: ignore
-        forecasted = forecasted_volatility
-        mse = mean_squared_error(observed, forecasted)
-        mape = mean_absolute_percentage_error(observed, forecasted)
-        metrics_text = f"Forecast MSE: {mse:.4f}  |  Forecast MAPE: {mape:.2%}"
+        # Define the start date for the current training window (365 calendar days back)
+        train_start_date = train_end_date - pd.Timedelta(days=initial_train_len)
 
-    # Create plot
+        # Slice the log returns data for the current training window
+        # .loc[] with dates handles gaps automatically
+        train_log_returns = log_returns.loc[train_start_date : train_end_date]
+
+        # The date for which we are making a one-step-ahead forecast
+        forecast_date = log_returns.index[i + 1]
+
+        # 1. Fit ARIMA on current training log returns
+        arima_model_current = ARIMA(train_log_returns, order=(p, d, q)).fit()
+        
+        # 2. Get ARIMA residuals for current window
+        current_arima_residuals = arima_model_current.resid[d:]
+        
+        # Ensure enough residuals for GARCH fitting
+        if len(current_arima_residuals) > 10: # GARCH usually needs more than a few points
+            # 3. Fit GARCH on ARIMA residuals
+            garch_spec_current = arch_model(current_arima_residuals, mean='Zero', vol='GARCH', p=1, q=1, dist='t')
+            garch_results_current = garch_spec_current.fit(disp='off') # Suppress output
+
+            # 4. Generate one-step-ahead forecast for volatility
+            forecast = garch_results_current.forecast(horizon=1, reindex=False)
+            one_step_vol = np.sqrt(forecast.variance.iloc[-1, 0]) # type: ignore
+
+            # 5. Store the forecast and the actual observed volatility for the forecast date
+            walk_forward_forecast_dates.append(forecast_date)
+            walk_forward_forecasts.append(one_step_vol)
+            
+            # 6. Log return used as proxy for realised volatility.
+            actual_return_on_forecast_day = log_returns.loc[forecast_date]
+            walk_forward_observed_volatility.append(np.abs(actual_return_on_forecast_day))
+
+        else:
+            walk_forward_forecast_dates.append(forecast_date)
+            walk_forward_forecasts.append(np.nan)
+            walk_forward_observed_volatility.append(np.nan)
+
+    # Convert lists to Pandas Series for easier handling and plotting
+    forecasted_volatility_series = pd.Series(walk_forward_forecasts, index=walk_forward_forecast_dates, name='Forecasted Volatility').dropna()
+    observed_volatility_series = pd.Series(walk_forward_observed_volatility, index=walk_forward_forecast_dates, name='Observed Volatility').dropna()
+
+    # Align the series for metrics calculation (only dates present in both)
+    common_index = forecasted_volatility_series.index.intersection(observed_volatility_series.index) # type: ignore
+    
+    forecasted_aligned = forecasted_volatility_series.loc[common_index]
+    observed_aligned = observed_volatility_series.loc[common_index]
+
+    metrics_text = "No forecasts generated for the selected range."
+    if not forecasted_aligned.empty:
+        rmse = root_mean_squared_error(observed_aligned, forecasted_aligned)
+        mae = mean_absolute_error(observed_aligned, forecasted_aligned)
+        metrics_text = f"Walk-Forward Forecast RMSE: {rmse:.4f}  |  Walk-Forward Forecast MAE: {mae:.4f}"
+    else:
+        metrics_text = "Not enough valid forecasts to calculate metrics."
+
+
+    # Create plot for walk-forward forecasts
     vol_forecast_plot = go.Figure()
 
-    # Add historical/training conditional volatility
-    vol_forecast_plot.add_trace(go.Scatter(
-        x=train_log_returns.index,
-        y=observed_vol.loc[train_log_returns.index], # type: ignore
-        mode='lines',
-        name='Historical (Training) Volatility',
-        line=dict(color='royalblue', width=2)
-    ))
+    if not forecasted_volatility_series.empty:
+        vol_forecast_plot.add_trace(go.Scatter(
+            x=forecasted_volatility_series.index,
+            y=forecasted_volatility_series,
+            mode='lines',
+            name='Walk-Forward Predicted Volatility',
+            line=dict(color='darkorange', width=2)
+        ))
     
-    # Only add test & forecast traces if there is a forecast period
-    if horizon > 0:
-        # Add observed volatility during the forecast period
+    if not observed_volatility_series.empty:
         vol_forecast_plot.add_trace(go.Scatter(
-            x=test_index,
-            y=observed_vol.loc[test_index], # type: ignore
+            x=observed_volatility_series.index,
+            y=observed_volatility_series,
             mode='lines',
-            name='Observed (In-Sample) Volatility',
-            line=dict(color='mediumseagreen', width=2)
+            name='Observed Daily Volatility (Abs Log Return)',
+            line=dict(color='mediumseagreen', width=2, dash='dot')
         ))
 
-        # Add the forecasted volatility
-        vol_forecast_plot.add_trace(go.Scatter(
-            x=forecasted_volatility.index, # type: ignore
-            y=forecasted_volatility,
-            mode='lines',
-            name='Forecasted Volatility',
-            line=dict(color='darkorange', dash='dash', width=2)
-        ))
-
-    # Update layout
+    # Add layout
     vol_forecast_plot.update_layout(
         title={
-            'text': 'GARCH(1,1) In-Sample Volatility Forecast vs. Observed',
+            'text': 'GARCH(1,1) Walk-Forward Volatility Forecasts vs. Observed',
             'y':0.9, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'
         },
         xaxis_title='Date',
@@ -472,7 +501,7 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     )
     vol_forecast_plot.update_xaxes(rangeslider_visible=True)
 
-    # --- End of GARCH Volatility Forecasting ---
+    # --- End of GARCH Walk-Forward Volatility Forecasting ---
 #################################
 
     # Strings for start/end date
@@ -482,12 +511,12 @@ def update_graphs(input_ticker, start_date, end_date, forecast_start_date, forec
     dash_title = (f"Analysis for: {ticker}")
     description_text = (
         f"This dashboard shows the daily price and returns for {ticker} from {start_date_str} to {end_date_str}, "
-        "then conducts a forecast of volatility. "
+        "then conducts a walk-forward forecast of volatility. "
         "The order of differencing to make the price time series stationary is determined using Augmented Dickey-Fuller test, "
         "then ACF and PACF plots are shown to determine specification of an ARIMA-GARCH model. "
         "Residual plots for the ARIMA mean model are shown for model diagnostics, with Ljung-Box and Bruesch-Pagan tests performed to check for serial correlation and ARCH effects. "
         "An ARCH and GARCH model is then fit to the ARIMA residuals for volatility forecasting. "
-        "GARCH forecasts of conditional volatility are shown, then MSE and MAPE are displayed for the specified forecasts. "
+        "GARCH one-step-ahead walk-forward forecasts of conditional volatility are shown, then RMSE and MAE are displayed for the specified forecasts. "
     )
     
     return price_chart, return_chart, dash_title, description_text, ADF_results, pacf_plot, acf_plot, arima_text, residuals_plot, residuals_sq_plot, lb_result, bp_result, ARCH_result, GARCH_result, metrics_text, vol_forecast_plot
