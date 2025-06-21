@@ -46,6 +46,19 @@ The dashboard guides the user through the standard workflow for building a volat
 * **Deployment:** Render
 
 ## Limitations and Further Analyses
-* **Fixed Data Range Overall:** Further updates could pull more recent data instead of the fixed range (currently, I am limited by my API, which would fail if several requests were made in a short time period. This lead to the choice for a fixed dataset)
-* **ARIMA and GARCH Specification:** While the ability to choose parameters for ARIMA is flexible for the user, there is much scope for further analysis at this stage. Options include specifying many models and displaying metrics such as AIC and BIC, then allowing manual model selection. Alternatively, MLE could be used and one model selected for the user.
-* **Observed volatility:** Log returns is a simplistic proxy for observed volatility. Other possibilities include a rolling standard deviation.
+
+* **Fixed Data Range Overall:** The current reliance on a fixed, pre-loaded dataset limits the dashboard's applicability to the most recent market conditions. Further updates could implement a live data retrieval mechanism (e.g., scheduled API calls) to ensure the analysis is always based on up-to-date market information. This would address the current limitation imposed by API call rate limits during development.
+
+* **ARIMA and GARCH Specification:** While manual parameter selection offers flexibility, there's significant scope for enhancing the model specification process:
+
+  * **Automated Model Selection:** Integrate automated ARIMA model selection (e.g., `auto_arima` from `pmdarima` library) which systematically searches for the optimal `p`, `d`, `q` parameters based on information criteria like AIC or BIC.
+
+  * **Alternative GARCH Models:** Extend the dashboard to allow fitting and comparing different GARCH-family models (e.g., EGARCH, TGARCH, GJR-GARCH) which are better equipped to capture asymmetric volatility responses (leverage effect).
+
+  * **Information Criteria Display:** Explicitly display AIC, BIC, and other relevant information criteria for various candidate models to aid in informed model selection.
+
+* **Observed Volatility Proxy:** Using daily logarithmic returns as a proxy for realized volatility is a simplification. More robust proxies include a rolling standard deviation of daily returns over a fixed window (e.g., 20 days), which can provide a smoother measure of historical volatility.
+
+* **Loss Functions for Volatility:** Employing error metrics specifically designed for volatility forecasts, which might penalize under- or over-prediction differently.
+
+* **Model Robustness and Stability:** Add checks for model convergence and stability, especially when fitting complex GARCH models, to alert the user to potential issues.
